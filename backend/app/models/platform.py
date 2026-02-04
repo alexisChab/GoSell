@@ -1,7 +1,7 @@
 from sqlalchemy import ForeignKey, Integer,String, Boolean, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.App.db.base import Base
+from backend.app.db.base import Base
 
 class Platform(Base):
     __tablename__ = 'platforme'

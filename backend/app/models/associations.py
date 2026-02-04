@@ -1,7 +1,7 @@
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.App.db.base import Base
+from backend.app.db.base import Base
 
 class CategorieGenre(Base):
     __tablename__ = "categorie_genre"

@@ -1,7 +1,7 @@
 from sqlalchemy import ForeignKey, Integer,String, Boolean, Date, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date
-from backend.App.db.base import Base
+from backend.app.db.base import Base
 
 class Produit(Base):
     __tablename__ = 'produit'

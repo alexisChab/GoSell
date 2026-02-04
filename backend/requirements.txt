@@ -1,2 +1,7 @@
 Flask
 Marshmallow
+SQLAlchemy>=2.0
+psycopg[binary]>=3.1
+python-dotenv>=1.0
+FLASK-CORS
+alembic

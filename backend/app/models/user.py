@@ -1,8 +1,8 @@
 from sqlalchemy import Integer,String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.App.db.base import Base
-class user(Base) :
+from backend.app.db.base import Base
+class User(Base) :
     __tablename__ = 'app_user'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
