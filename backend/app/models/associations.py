@@ -1,7 +1,7 @@
 from sqlalchemy import ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.db.base import Base
+from app.db.base import Base
 
 class CategorieGenre(Base):
     __tablename__ = "categorie_genre"
@@ -10,5 +10,23 @@ class CategorieGenre(Base):
 
 class ProduitTypeProduit(Base):
     __tablename__ = "produit_type_produit"
-    produit_id: Mapped[int] = mapped_column(ForeignKey("produit.id"), primary_key=True)
-    type_produit_id: Mapped[int] = mapped_column(ForeignKey("type_produit.id"), primary_key=True)
+
+    produit_id: Mapped[int] = mapped_column(
+        ForeignKey("produit.id"),
+        primary_key=True
+    )
+    type_produit_id: Mapped[int] = mapped_column(
+        ForeignKey("type_produit.id"),
+        primary_key=True
+    )
+
+    produit = relationship(
+        "Produit",
+        back_populates="produit_type_produits"
+    )
+
+    type_produit = relationship(
+        "ProductType",
+        back_populates="produit_type_produits"
+    )
+

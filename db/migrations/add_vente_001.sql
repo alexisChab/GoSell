@@ -50,7 +50,7 @@ SELECT
   p.id AS produit_id,
   p.nom,
   v.date_vente,
-  v.prix_vente,
+  v.prix_vecd backednnte,
 
   v.montant_frais_plateforme,
   c.cout_total_hors_plateforme,

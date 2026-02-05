@@ -1,7 +1,7 @@
 from sqlalchemy import ForeignKey, Integer,String, Boolean, Date, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date
-from backend.app.db.base import Base
+from app.db.base import Base
 
 class Produit(Base):
     __tablename__ = 'produit'
@@ -16,9 +16,13 @@ class Produit(Base):
     prix_min_espere: Mapped[Float |None] = mapped_column(Float, nullable=True, default=0)
     prix_max_espere: Mapped[float | None] = mapped_column(Float, nullable=True, default=0)
     date_mise_en_vente: Mapped[date | None ] = mapped_column(Date, nullable=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user_app.id"), nullable=False)
-    utilisateur = relationship("user_app", back_populates="produit")
-    types_produit = relationship("type_produit", secondary="produit_type_produit", back_populates="produits")
-    ou_ventes = relationship("ou_vente", back_populates="produit", cascade="all, delete-orphan")
-    frais_annonces = relationship("frais_annexe", back_populates="produit", cascade="all, delete-orphan")
-    frais_livraisons = relationship("frais_livraison", back_populates="produit", cascade="all, delete-orphan")
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"), nullable=False)
+    utilisateur = relationship("User", back_populates="produit")
+    produit_type_produits = relationship(
+        "ProduitTypeProduit",
+        back_populates="produit",
+        cascade="all, delete-orphan",
+    )
+    ou_vente = relationship("WhereSell", back_populates="produit", cascade="all, delete-orphan")
+    frais_annexe = relationship("OtherCharges", back_populates="produit", cascade="all, delete-orphan")
+    frais_livraison = relationship("DeliveryCharges", back_populates="produit", cascade="all, delete-orphan")
