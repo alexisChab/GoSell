@@ -9,6 +9,7 @@ from app.crud.token_blocklist import revoke_token
 
 from app.schemas.auth import RegisterSchema, LoginSchema, UserReadSchema
 from app.crud.user import create_user, authenticate, ConflictError, UnauthorizedError, get_user_by_id
+import json
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -41,10 +42,12 @@ def login():
     body = {
         "ok": True,
         "user": _user_out.dump(user),
-        "csrf_access_token": get_csrf_token(access_token),
-        "csrf_refresh_token": get_csrf_token(refresh_token),
     }
-
+    try:
+        body["csrf_access_token"] = get_csrf_token(access_token)
+        body["csrf_refresh_token"] = get_csrf_token(refresh_token)
+    except KeyError:
+        pass
     response = make_response(jsonify(body), 200)
     set_access_cookies(response, access_token)
     set_refresh_cookies(response, refresh_token)
@@ -59,7 +62,10 @@ def refresh():
     resp = {"ok": True}
     response = make_response(resp, 200)
     set_access_cookies(response, access)
-    resp["csrf_access_token"] = get_csrf_token(access)
+    try:
+        resp["csrf_access_token"] = get_csrf_token(access)
+    except KeyError:
+        pass
     return response
 
 @auth_bp.get("/me")
