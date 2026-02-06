@@ -10,7 +10,6 @@ class TokenBlocklist(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     jti: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
     token_type: Mapped[str] = mapped_column(String(10), nullable=False)  # access / refresh
-    user_id: Mapped[int] = mapped_column(ForeignKey("utilisateur.id"), nullable=False, index=True)
-
-    revoked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"), nullable=False, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+

@@ -81,7 +81,7 @@ def update_user_profile(
     *,
     nom: str | None = None,
     pro: bool | None = None,
-) -> user:
+) -> User:
     user = require_user(user_id)
 
     if nom is not None:

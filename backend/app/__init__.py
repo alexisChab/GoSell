@@ -8,6 +8,7 @@ from app.config import Config
 from app.extensions import jwt
 from app.jwt_callbacks import register_jwt_callbacks
 from app.crud.user import AppError
+from app.crud.token_blocklist import is_token_revoked
 
 def create_app():
     load_dotenv()
@@ -23,6 +24,9 @@ def create_app():
         # e.messages = dict field -> list[str]
         return {"error": {"code": "VALIDATION_ERROR", "message": "Invalid payload", "details": e.messages}}, 400
 
+    @jwt.token_in_blocklist_loader
+    def check_if_token_revoked(jwt_header, jwt_payload):
+        return is_token_revoked(jwt_payload["jti"])
 
     @app.errorhandler(AppError)
     def handle_app_error(e: AppError):
