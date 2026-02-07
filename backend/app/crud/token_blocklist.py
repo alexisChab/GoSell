@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.db.deps import db
 from app.models.token_blocklist import TokenBlocklist
@@ -24,3 +24,15 @@ def is_token_revoked(jti: str) -> bool:
         TokenBlocklist.expires_at > datetime.now(timezone.utc),
     )
     return session.execute(stmt).scalar_one_or_none() is not None
+
+def cleanup_revoked_tokens() -> int:
+    """Supprime les tokens expirés de la blocklist. Retourne le nombre supprimé."""
+    session = db()
+    now = datetime.now(timezone.utc)
+
+    stmt = delete(TokenBlocklist).where(TokenBlocklist.expires_at <= now)
+    result = session.execute(stmt)
+    session.commit()
+
+    # SQLAlchemy peut renvoyer None selon driver; on sécurise
+    return int(result.rowcount or 0)

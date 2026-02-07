@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from marshmallow import ValidationError
 from app.db.request_session import init_request_db
 from app.config import Config
-from app.extensions import jwt
+from app.extensions import jwt, db
 from app.jwt_callbacks import register_jwt_callbacks
 from app.crud.user import AppError
 from app.crud.token_blocklist import is_token_revoked
@@ -17,6 +17,7 @@ def create_app():
     CORS(app)
     init_request_db(app)
     jwt.init_app(app)
+    db.init_app(app)
     register_jwt_callbacks(jwt)
 
     @app.errorhandler(ValidationError)

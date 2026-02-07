@@ -17,4 +17,4 @@ class Config:
     JWT_REFRESH_COOKIE_PATH = "/api/auth/refresh"
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=int(os.environ.get("JWT_ACCESS_EXPIRES_MIN", "15")))
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=int(os.environ.get("JWT_REFRESH_EXPIRES_DAYS", "30")))
-
+    SQLALCHEMY_DATABASE_URI = os.environ["DATABASE_URL"]
