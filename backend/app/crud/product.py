@@ -66,3 +66,103 @@ def get_product_for_user_by_id(user_id: int, product_id: int):
         Produit.user_id == user_id
     )
     return db().execute(stmt).scalars().first()
+
+class NotFoundError(Exception):
+    pass
+
+
+class ForbiddenError(Exception):
+    pass
+
+
+def create_product(user_id: int, data: dict) -> Produit:
+    """
+    Crée un produit appartenant à user_id.
+    data vient du ProductCreateSchema.load(...)
+    """
+    session = db()
+
+    produit = Produit(
+        nom=data["nom"],
+        description=data.get("description"),
+
+        en_vente=data.get("en_vente", False),
+        est_vendu=data.get("est_vendu", False),
+        a_ete_achete=data.get("a_ete_achete", False),
+
+        prix_achat=data.get("prix_achat", 0),
+        prix_vente=data.get("prix_vente"),
+        prix_min_espere=data.get("prix_min_espere", 0),
+        prix_max_espere=data.get("prix_max_espere", 0),
+
+        date_mise_en_vente=data.get("date_mise_en_vente"),
+
+        user_id=user_id,
+    )
+
+    session.add(produit)
+    session.commit()
+    session.refresh(produit)
+    return produit
+
+
+def delete_product(user_id: int, product_id: int) -> None:
+    """
+    Supprime un produit si et seulement s'il appartient à user_id.
+    Anti-leak: si pas à lui => NotFound (ou Forbidden si tu préfères).
+    """
+    session = db()
+
+    stmt = select(Produit).where(Produit.id == product_id)
+    produit = session.execute(stmt).scalars().first()
+
+    if not produit:
+        raise NotFoundError("Produit introuvable")
+
+    if produit.user_id != user_id:
+        # Option anti-leak recommandée:
+        raise NotFoundError("Produit introuvable")
+        # Option alternative:
+        # raise ForbiddenError("Accès interdit")
+
+    session.delete(produit)
+    session.commit()
+
+def update_product(user_id: int, product_id: int, data: dict) -> Produit:
+    """
+    PATCH partiel d'un produit appartenant à user_id.
+    data vient de ProductPatchSchema.load(...)
+    """
+    session = db()
+
+    stmt = select(Produit).where(Produit.id == product_id)
+    produit = session.execute(stmt).scalars().first()
+
+    if not produit:
+        raise NotFoundError("Produit introuvable")
+
+    if produit.user_id != user_id:
+        # anti-leak
+        raise NotFoundError("Produit introuvable")
+
+    # champs modifiables (whitelist)
+    updatable = {
+        "nom",
+        "description",
+        "en_vente",
+        "est_vendu",
+        "a_ete_achete",
+        "prix_achat",
+        "prix_vente",
+        "prix_min_espere",
+        "prix_max_espere",
+        "date_mise_en_vente",
+    }
+
+    for key, value in data.items():
+        if key in updatable:
+            setattr(produit, key, value)
+
+    session.commit()
+    session.refresh(produit)
+    return produit

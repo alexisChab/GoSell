@@ -1,6 +1,6 @@
-from sqlalchemy import ForeignKey, Integer,String, Boolean
+from sqlalchemy import ForeignKey, Integer,String, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from datetime import datetime
 from app.db.base import Base
 
 class Stock(Base):
@@ -9,9 +9,8 @@ class Stock(Base):
     nom: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     localisation: Mapped[str | None] = mapped_column(String, nullable=True)
-    a_et_achete: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)
-    type_produit_id: Mapped[int | None] = mapped_column(ForeignKey("type_produit.id"), nullable=True)
+    a_ete_achete: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("app_user.id"), nullable=False)
 
     utilisateur = relationship("User", back_populates="stock")
-    type_produit = relationship("ProductType")
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
