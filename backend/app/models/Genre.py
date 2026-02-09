@@ -6,5 +6,5 @@ class Genre(Base):
     __tablename__ = 'genre'
     id: Mapped[int]= mapped_column(Integer, primary_key=True, autoincrement=True)
     intitule: Mapped[str] = mapped_column(String, nullable=False)
-    categorie_id: Mapped[int]= mapped_column(Integer, ForeignKey('categorie.id'))
-    categories = relationship("Category", secondary="categorie_genre", back_populates="genres")
+    categorie_id: Mapped[int] = mapped_column(ForeignKey("categorie.id"), nullable=False)
+    categorie = relationship("Category", back_populates="genres")
