@@ -6,7 +6,7 @@ from app.models.product import Produit
 from app.models.delivery_charges import DeliveryCharges
 from app.models.stock import Stock
 from app.models.delivery_company import DeliveryCompany
-from app.models.Genre import Genre
+from app.models.genre import Genre
 from app.models.other_charges import OtherCharges
 from app.models.product_type import ProductType
 from app.models.where_sell import WhereSell
@@ -17,7 +17,7 @@ __all__ = [
     "ProduitTypeProduit",
     "User",
     "Category",
-    "Genre",
+    "genre.py",
     "ProductType",
     "Platform",
     "Produit",

@@ -11,7 +11,7 @@ class Produit(Base):
     en_vente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     est_vendu: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     a_ete_achete: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    prix_achat: Mapped[float | None] = mapped_column(Float, nullable=True, default=0)
+    prix_achat: Mapped[float | None] = mapped_column(Float, nullable=True)
     prix_vente: Mapped[float|None] = mapped_column(Float, nullable=True)
     prix_min_espere: Mapped[Float |None] = mapped_column(Float, nullable=True, default=0)
     prix_max_espere: Mapped[float | None] = mapped_column(Float, nullable=True, default=0)
