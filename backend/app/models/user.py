@@ -12,4 +12,6 @@ class User(Base) :
     pro: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)
     produit = relationship("Produit", cascade="all, delete-orphan")
     stock = relationship("Stock", cascade="all, delete-orphan")
+    lots = relationship("Lot", back_populates="utilisateur", cascade="all, delete-orphan")
+
 

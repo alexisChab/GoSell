@@ -11,6 +11,8 @@ from app.models.other_charges import OtherCharges
 from app.models.product_type import ProductType
 from app.models.where_sell import WhereSell
 from app.models.token_blocklist import TokenBlocklist
+from app.models.lot import Lot
+from app.models.lot_produit import LotProduit
 
 __all__ = [
     "CategorieGenre",
@@ -27,5 +29,7 @@ __all__ = [
     "DeliveryCompany",
     "Stock",
     "TokenBlocklist",
+    "Lot",
+    "Lot_produit",
     
 ]

@@ -8,5 +8,7 @@ class DeliveryCharges(Base):
     montant: Mapped[float] = mapped_column(Float, primary_key=True, nullable=False)
     produit_id: Mapped[int] = mapped_column(ForeignKey("produit.id"), nullable=False)
     produit = relationship("Produit", back_populates="frais_livraison")
+    lot_id: Mapped[int | None] = mapped_column(ForeignKey("lot.id"), nullable=True)
+    lot = relationship("Lot", back_populates="frais_livraison")
     societe_id: Mapped[int] = mapped_column(ForeignKey("societe_livraison.id"), nullable=True)
     societe_livraison= relationship("DeliveryCompany", back_populates="frais_livraison")

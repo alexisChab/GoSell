@@ -26,4 +26,4 @@ class Produit(Base):
     ou_vente = relationship("WhereSell", back_populates="produit", cascade="all, delete-orphan")
     frais_annexe = relationship("OtherCharges", back_populates="produit", cascade="all, delete-orphan")
     frais_livraison = relationship("DeliveryCharges", back_populates="produit", cascade="all, delete-orphan")
-
+    lot_produits = relationship("LotProduit", back_populates="produit", cascade="all, delete-orphan")

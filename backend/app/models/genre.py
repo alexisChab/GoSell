@@ -8,3 +8,4 @@ class Genre(Base):
     intitule: Mapped[str] = mapped_column(String, nullable=False)
     categorie_id: Mapped[int] = mapped_column(ForeignKey("categorie.id"), nullable=False)
     categorie = relationship("Category", back_populates="genres")
+    types_produit = relationship("ProductType", back_populates="genre", cascade="all, delete-orphan")
