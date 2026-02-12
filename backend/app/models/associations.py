@@ -8,25 +8,4 @@ class CategorieGenre(Base):
     categorie_id: Mapped[int] = mapped_column(ForeignKey("categorie.id"), primary_key=True)
     genre_id: Mapped[int] = mapped_column(ForeignKey("genre.id"), primary_key=True)
 
-class ProduitTypeProduit(Base):
-    __tablename__ = "produit_type_produit"
-
-    produit_id: Mapped[int] = mapped_column(
-        ForeignKey("produit.id"),
-        primary_key=True
-    )
-    type_produit_id: Mapped[int] = mapped_column(
-        ForeignKey("type_produit.id"),
-        primary_key=True
-    )
-
-    produit = relationship(
-        "Produit",
-        back_populates="produit_type_produits"
-    )
-
-    type_produit = relationship(
-        "ProductType",
-        back_populates="produit_type_produits"
-    )
 

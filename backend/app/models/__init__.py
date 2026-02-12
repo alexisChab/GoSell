@@ -1,4 +1,4 @@
-from app.models.associations import CategorieGenre, ProduitTypeProduit
+from app.models.associations import CategorieGenre
 from app.models.user import User
 from app.models.categorie import Category
 from app.models.platform import Platform
@@ -13,7 +13,7 @@ from app.models.where_sell import WhereSell
 from app.models.token_blocklist import TokenBlocklist
 from app.models.lot import Lot
 from app.models.lot_produit import LotProduit
-
+from app.models.produit_type_produit import ProduitTypeProduit
 __all__ = [
     "CategorieGenre",
     "ProduitTypeProduit",
