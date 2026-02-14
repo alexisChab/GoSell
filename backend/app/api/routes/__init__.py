@@ -10,7 +10,10 @@ from app.api.routes.product_type import product_type_bp
 from app.api.routes.produit_type_produit import produit_type_produit_bp
 from app.api.routes.where_sell import where_sell_bp
 from app.api.routes.lot import lot_bp
-
+from app.api.routes.lot_produit import lot_produit_bp
+from app.api.routes.other_charges import other_charges_bp
+from app.api.routes.delivery_charges import delivery_charges_bp
+from app.api.routes.user import user_bp
 
 def register_routes(app):
     app.register_blueprint(health_bp)
@@ -25,3 +28,7 @@ def register_routes(app):
     app.register_blueprint(produit_type_produit_bp, url_prefix="/api")
     app.register_blueprint(where_sell_bp, url_prefix="/api")
     app.register_blueprint(lot_bp, url_prefix="/api")
+    app.register_blueprint(lot_produit_bp, url_prefix="/api")
+    app.register_blueprint(other_charges_bp, url_prefix="/api")
+    app.register_blueprint(delivery_charges_bp, url_prefix="/api")
+    app.register_blueprint(user_bp, url_prefix="/api")

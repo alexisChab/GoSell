@@ -114,3 +114,56 @@ def list_users(*, limit: int = 50, offset: int = 0) -> list[User]:
     return db().execute(
         select(User).order_by(User.id).limit(limit).offset(offset)
     ).scalars().all()
+
+def email_already_used(email: str, *, exclude_user_id: int | None = None) -> bool:
+    q = select(User).where(User.email == email)
+    if exclude_user_id is not None:
+        q = q.where(User.id != exclude_user_id)
+    return db().execute(q).scalars().first() is not None
+
+def update_user_profile(
+    user_id: int,
+    *,
+    name: str | None = None,
+    username: str | None = None,
+    email: str | None = None,
+    pro: bool | None = None,
+) -> User:
+    user = require_user(user_id)
+
+    if email is not None and email != user.email:
+        # email unique
+        existing = get_user_by_email(email)
+        if existing and existing.id != user.id:
+            raise ConflictError("Email already used")
+        user.email = email
+
+    if name is not None:
+        user.name = name
+
+    if username is not None:
+        user.username = username
+
+    if pro is not None:
+        user.pro = pro
+
+    db().flush()
+    db().refresh(user)
+    return user
+
+
+def change_password(user_id: int, *, current_password: str, new_password: str) -> None:
+    user = require_user(user_id)
+
+    if not verify_password(current_password, user.password_hash):
+        raise UnauthorizedError("Invalid credentials")
+
+    user.password_hash = hash_password(new_password)
+    db().flush()
+
+
+def require_user_by_email(email: str) -> User:
+    user = get_user_by_email(email)
+    if not user:
+        raise NotFoundError("User not found")
+    return user

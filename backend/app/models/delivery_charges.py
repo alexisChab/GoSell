@@ -5,7 +5,7 @@ from app.db.base import Base
 class DeliveryCharges(Base):
     __tablename__ = 'frais_livraison'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    montant: Mapped[float] = mapped_column(Float, primary_key=True, nullable=False)
+    montant: Mapped[float] = mapped_column(Float, nullable=False)
     produit_id: Mapped[int] = mapped_column(ForeignKey("produit.id"), nullable=False)
     produit = relationship("Produit", back_populates="frais_livraison")
     lot_id: Mapped[int | None] = mapped_column(ForeignKey("lot.id"), nullable=True)
