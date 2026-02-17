@@ -10,6 +10,7 @@ from app.crud.lot import (
     create_lot_for_user,
     patch_lot_for_user,
     delete_lot_for_user,
+    get_lot_finance_for_user
 )
 
 from app.schemas.lot import (
@@ -17,13 +18,14 @@ from app.schemas.lot import (
     LotCreateSchema,
     LotPatchSchema,
     LotFilterSchema,
+    LotFinanceReadSchema
 )
 
 lot_bp = Blueprint("lot", __name__)
 
 _out_one = LotReadSchema()
 _out_many = LotReadSchema(many=True)
-
+_out_finance = LotFinanceReadSchema()
 _in_create = LotCreateSchema()
 _in_patch = LotPatchSchema()
 _in_filters = LotFilterSchema()
@@ -114,3 +116,16 @@ def delete_lot_route(lot_id: int):
         return jsonify({"ok": False, "error": "LOT_NOT_FOUND"}), 404
 
     return jsonify({"ok": True, "deleted_id": lot_id}), 200
+
+@lot_bp.get("/lots/<int:lot_id>/finance")
+@jwt_required()
+def get_lot_finance_route(lot_id: int):
+    user_id = get_jwt_identity()
+
+    data = get_lot_finance_for_user(user_id=user_id, lot_id=lot_id)
+
+    if data is None:
+        return jsonify({"ok": False, "error": "LOT_NOT_FOUND"}), 404
+
+    return jsonify(_out_finance.dump(data)), 200
+

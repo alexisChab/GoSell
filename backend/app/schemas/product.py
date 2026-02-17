@@ -182,3 +182,66 @@ class ProductFilterSchema(Schema):
 
     class Meta:
         unknown = EXCLUDE
+
+
+class ProductFinancePrixSchema(Schema):
+    min_espere = fields.Float(dump_only=True, allow_none=True)
+    max_espere = fields.Float(dump_only=True, allow_none=True)
+    median_espere = fields.Float(dump_only=True, allow_none=True)
+
+
+class ProductFinanceFeesSchema(Schema):
+    delivery_fees = fields.Float(dump_only=True)
+    other_fees = fields.Float(dump_only=True)
+    total_fees = fields.Float(dump_only=True)
+
+
+class ProductFinanceCostsSchema(Schema):
+    # coût achat : peut être None si from_lot=True
+    cout_achat = fields.Float(dump_only=True, allow_none=True)
+
+    # cout_total : cout_achat + frais (peut être None si from_lot=True
+    # ou si données insuffisantes)
+    cout_total = fields.Float(dump_only=True, allow_none=True)
+
+    # optionnel mais très utile côté front pour afficher "GRATUIT" / "PRODUIT_PRIX_ACHAT"
+    cost_source = fields.Str(
+        dump_only=True,
+        allow_none=True,
+        validate=validate.OneOf(["GRATUIT", "PRODUIT_PRIX_ACHAT"])
+    )
+
+
+class ProductFinanceProfitSchema(Schema):
+    # bénéfice espéré basé sur le prix médian espéré
+    benefice_espere = fields.Float(dump_only=True, allow_none=True)
+
+    # booléen direct pour le front
+    is_benefice_espere = fields.Bool(dump_only=True, allow_none=True)
+
+    # reason pour debug / UI (lot, prix espérés manquants, prix achat manquant)
+    reason = fields.Str(
+        dump_only=True,
+        allow_none=True,
+        validate=validate.OneOf([
+            "CALCUL_AU_NIVEAU_DU_LOT",
+            "PRIX_ESPERES_INSUFFISANTS",
+            "PRIX_ACHAT_MANQUANT",
+        ]),
+    )
+
+
+class ProductFinanceReadSchema(Schema):
+    """
+    Réponse GET /products/<id>/finance
+    """
+    produit_id = fields.Int(dump_only=True)
+
+    # règles métier
+    from_lot = fields.Bool(dump_only=True)
+    a_ete_achete = fields.Bool(dump_only=True)
+
+    prix = fields.Nested(ProductFinancePrixSchema, dump_only=True)
+    fees = fields.Nested(ProductFinanceFeesSchema, dump_only=True)
+    costs = fields.Nested(ProductFinanceCostsSchema, dump_only=True)
+    profit = fields.Nested(ProductFinanceProfitSchema, dump_only=True)

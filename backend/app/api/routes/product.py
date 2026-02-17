@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.schemas.product import ProductReadSchema, ProductFilterSchema, ProductCreateSchema, ProductPatchSchema
-from app.crud.product import get_products_for_user, get_product_for_user_by_id, create_product, delete_product, NotFoundError, ForbiddenError, update_product
+from app.schemas.product import ProductReadSchema, ProductFilterSchema, ProductCreateSchema, ProductPatchSchema, ProductFinanceReadSchema
+from app.crud.product import get_products_for_user, get_product_for_user_by_id, create_product, delete_product, NotFoundError, ForbiddenError, update_product, get_product_finance_for_user
 from marshmallow import ValidationError
 
 product_bp = Blueprint("product", __name__)
@@ -12,6 +12,8 @@ _filters_in = ProductFilterSchema()
 _product_in = ProductCreateSchema()
 _product_out = ProductReadSchema()
 _patch_in = ProductPatchSchema()
+_product_finance_out = ProductFinanceReadSchema()
+
 
 @product_bp.get("/products")
 @jwt_required()
@@ -91,3 +93,20 @@ def patch_product(product_id: int):
         return {"error": {"code": "NOT_FOUND", "message": "Produit introuvable"}}, 404
 
     return jsonify(_product_out.dump(produit)), 200
+
+@product_bp.get("/products/<int:product_id>/finance")
+@jwt_required()
+def get_product_finance(product_id: int):
+    user_id = int(get_jwt_identity())
+
+    finance_data = get_product_finance_for_user(user_id, product_id)
+
+    if not finance_data:
+        return {
+            "error": {
+                "code": "NOT_FOUND",
+                "message": "Produit introuvable",
+            }
+        }, 404
+
+    return jsonify(_product_finance_out.dump(finance_data)), 200
