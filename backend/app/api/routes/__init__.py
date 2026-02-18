@@ -14,7 +14,7 @@ from app.api.routes.lot_produit import lot_produit_bp
 from app.api.routes.other_charges import other_charges_bp
 from app.api.routes.delivery_charges import delivery_charges_bp
 from app.api.routes.user import user_bp
-
+from app.api.routes.benefice import benefice_bp
 def register_routes(app):
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
@@ -32,3 +32,4 @@ def register_routes(app):
     app.register_blueprint(other_charges_bp, url_prefix="/api")
     app.register_blueprint(delivery_charges_bp, url_prefix="/api")
     app.register_blueprint(user_bp, url_prefix="/api")
+    app.register_blueprint(benefice_bp, url_prefix="/api")
