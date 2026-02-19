@@ -181,3 +181,131 @@ class ProductForecastReadSchema(Schema):
             "ZERO_COST",
         ]),
     )
+
+class RiskProductsQuerySchema(Schema):
+    # filtres utiles
+    limit = fields.Int(load_default=50, validate=validate.Range(min=1, max=500))
+    only_en_vente = fields.Bool(load_default=True)
+    include_lot_products = fields.Bool(load_default=False)  # si False -> on exclut ceux en lot
+    threshold_multiple = fields.Float(load_default=1.0, validate=validate.Range(min=0))
+
+    # filtres taxonomie (produits)
+    categorie_id = fields.Int(allow_none=True, load_default=None, validate=validate.Range(min=1))
+    genre_id = fields.Int(allow_none=True, load_default=None, validate=validate.Range(min=1))
+    type_produit_id = fields.Int(allow_none=True, load_default=None, validate=validate.Range(min=1))
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class RiskProductItemSchema(Schema):
+    product_id = fields.Int(dump_only=True)
+    nom = fields.Str(dump_only=True, allow_none=True)
+
+    from_lot = fields.Bool(dump_only=True)
+
+    median_expected = fields.Float(dump_only=True, allow_none=True)
+    cost_total = fields.Float(dump_only=True, allow_none=True)
+
+    profit_amount = fields.Float(dump_only=True, allow_none=True)
+    multiple = fields.Float(dump_only=True, allow_none=True)
+
+    risk_level = fields.Str(
+        dump_only=True,
+        validate=validate.OneOf(["LOSS", "LOW_MARGIN"])
+    )
+
+    reason = fields.Str(
+        dump_only=True,
+        allow_none=True,
+        validate=validate.OneOf([
+            "CALCUL_AU_NIVEAU_DU_LOT",
+            "PRIX_ESPERES_INSUFFISANTS",
+            "PRIX_ACHAT_MANQUANT",
+            "ZERO_COST",
+        ]),
+    )
+
+
+class RiskProductsReadSchema(Schema):
+    items = fields.Nested(RiskProductItemSchema, many=True, dump_only=True)
+    count = fields.Int(dump_only=True)
+
+class BestTypesQuerySchema(Schema):
+    min_multiple = fields.Float(load_default=1.5, validate=validate.Range(min=0))
+    min_count = fields.Int(load_default=3, validate=validate.Range(min=1, max=1000))
+    only_en_vente = fields.Bool(load_default=True)
+    exclude_lot_products = fields.Bool(load_default=True)
+
+    # “pas trop cher”
+    max_avg_cost_total = fields.Float(allow_none=True, load_default=None, validate=validate.Range(min=0))
+
+    # taxonomie optionnelle
+    categorie_id = fields.Int(allow_none=True, load_default=None, validate=validate.Range(min=1))
+    genre_id = fields.Int(allow_none=True, load_default=None, validate=validate.Range(min=1))
+
+    limit = fields.Int(load_default=50, validate=validate.Range(min=1, max=500))
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class BestTypeItemSchema(Schema):
+    type_produit_id = fields.Int(dump_only=True)
+    type_produit_nom = fields.Str(dump_only=True, allow_none=True)
+
+    count_products = fields.Int(dump_only=True)
+    count_profitable = fields.Int(dump_only=True)
+    success_rate = fields.Float(dump_only=True)
+
+    avg_multiple_median = fields.Float(dump_only=True)
+    avg_cost_total = fields.Float(dump_only=True)
+    avg_profit_amount = fields.Float(dump_only=True)
+
+
+class BestTypesReadSchema(Schema):
+    filters = fields.Dict(dump_only=True)
+    items = fields.Nested(BestTypeItemSchema, many=True, dump_only=True)
+    count = fields.Int(dump_only=True)
+
+class BenefitBreakdownQuerySchema(Schema):
+    # categorie | genre | type_produit
+    group_by = fields.Str(
+        required=True,
+        validate=validate.OneOf(["categorie", "genre", "type_produit"])
+    )
+
+    include_fees = fields.Bool(load_default=True)
+    exclude_lot_products = fields.Bool(load_default=True)
+
+    only_en_vente = fields.Bool(load_default=False)
+    only_unsold = fields.Bool(load_default=False)  # si True => est_vendu=False
+
+    min_count = fields.Int(load_default=1, validate=validate.Range(min=1, max=1000))
+    limit = fields.Int(load_default=50, validate=validate.Range(min=1, max=500))
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class BenefitBreakdownItemSchema(Schema):
+    group_id = fields.Int(dump_only=True, allow_none=True)
+    group_name = fields.Str(dump_only=True, allow_none=True)
+
+    count_products = fields.Int(dump_only=True)
+
+    revenue_expected_median = fields.Float(dump_only=True)
+    cost_products = fields.Float(dump_only=True)
+    fees = fields.Float(dump_only=True)
+    cost_total = fields.Float(dump_only=True)
+
+    profit_expected_median = fields.Float(dump_only=True)
+    is_profit_expected_median = fields.Bool(dump_only=True)
+
+    avg_multiple_median = fields.Float(dump_only=True, allow_none=True)  # revenue / cost_total si cost_total>0
+
+
+class BenefitBreakdownReadSchema(Schema):
+    group_by = fields.Str(dump_only=True)
+    items = fields.Nested(BenefitBreakdownItemSchema, many=True, dump_only=True)
+    count = fields.Int(dump_only=True)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import select, and_, func, case, literal, cast, Float
 from sqlalchemy.orm import Session
-
+from collections import defaultdict
 from app.db.deps import db
 
 from app.models.product import Produit
@@ -546,4 +546,410 @@ def get_product_forecast_for_user(
         "cost_total": float(cost_total),
         "scenarios": scenarios,
         "reason": out_reason,
+    }
+
+def get_risk_products_for_user(user_id: int, filters: dict) -> dict:
+    session: Session = db()
+
+    limit = int(filters.get("limit", 50))
+    only_en_vente = bool(filters.get("only_en_vente", True))
+    include_lot_products = bool(filters.get("include_lot_products", False))
+    threshold_multiple = float(filters.get("threshold_multiple", 1.0))
+
+    categorie_id = filters.get("categorie_id")
+    genre_id = filters.get("genre_id")
+    type_produit_id = filters.get("type_produit_id")
+    need_taxonomy_join = any(x is not None for x in (categorie_id, genre_id, type_produit_id))
+
+    conds = [Produit.user_id == user_id]
+    if only_en_vente:
+        conds.append(Produit.en_vente == True)  # noqa: E712
+
+    stmt = select(Produit).where(and_(*conds))
+
+    if need_taxonomy_join:
+        stmt = (
+            stmt.join(ProduitTypeProduit, ProduitTypeProduit.produit_id == Produit.id)
+                .join(ProductType, ProductType.id == ProduitTypeProduit.type_produit_id)
+                .join(Genre, Genre.id == ProductType.genre_id)
+                .join(Category, Category.id == Genre.categorie_id)
+        )
+        if type_produit_id is not None:
+            stmt = stmt.where(ProductType.id == int(type_produit_id))
+        if genre_id is not None:
+            stmt = stmt.where(Genre.id == int(genre_id))
+        if categorie_id is not None:
+            stmt = stmt.where(Category.id == int(categorie_id))
+
+    # (optionnel) petit tri : les plus chers d'abord pour remonter les plus “dangereux”
+    stmt = stmt.order_by(Produit.id.desc()).limit(limit * 3)
+
+    produits = session.execute(stmt).scalars().all()
+
+    items = []
+    for p in produits:
+        ctx = _get_product_cost_context_for_user(session, user_id, p.id)
+        if ctx is None:
+            continue
+
+        # lot ?
+        if ctx["from_lot"]:
+            if not include_lot_products:
+                continue
+            items.append({
+                "product_id": p.id,
+                "nom": getattr(p, "nom", None),
+                "from_lot": True,
+                "median_expected": ctx["pmed"],
+                "cost_total": None,
+                "profit_amount": None,
+                "multiple": None,
+                "risk_level": "LOSS",
+                "reason": "CALCUL_AU_NIVEAU_DU_LOT",
+            })
+            continue
+
+        # coût calculable ?
+        if ctx["cost_total"] is None:
+            items.append({
+                "product_id": p.id,
+                "nom": getattr(p, "nom", None),
+                "from_lot": False,
+                "median_expected": ctx["pmed"],
+                "cost_total": None,
+                "profit_amount": None,
+                "multiple": None,
+                "risk_level": "LOSS",
+                "reason": ctx["reason"],
+            })
+            continue
+
+        cost_total = float(ctx["cost_total"])
+        median = ctx["pmed"]
+
+        # médian calculable ?
+        if median is None:
+            items.append({
+                "product_id": p.id,
+                "nom": getattr(p, "nom", None),
+                "from_lot": False,
+                "median_expected": None,
+                "cost_total": cost_total,
+                "profit_amount": None,
+                "multiple": None,
+                "risk_level": "LOSS",
+                "reason": "PRIX_ESPERES_INSUFFISANTS",
+            })
+            continue
+
+        median = float(median)
+        profit_amount = median - cost_total
+
+        if cost_total == 0:
+            multiple = None
+            reason = "ZERO_COST"
+        else:
+            multiple = median / cost_total
+            reason = None
+
+        # filtre risk: multiple < threshold (par défaut 1.0)
+        if multiple is not None and multiple >= threshold_multiple:
+            continue
+
+        risk_level = "LOSS" if profit_amount < 0 else "LOW_MARGIN"
+
+        items.append({
+            "product_id": p.id,
+            "nom": getattr(p, "nom", None),
+            "from_lot": False,
+            "median_expected": median,
+            "cost_total": cost_total,
+            "profit_amount": float(profit_amount),
+            "multiple": None if multiple is None else float(multiple),
+            "risk_level": risk_level,
+            "reason": reason,
+        })
+
+        if len(items) >= limit:
+            break
+
+    return {"items": items, "count": len(items)}
+
+def get_best_types_for_user(user_id: int, filters: dict) -> dict:
+    session: Session = db()
+
+    min_multiple = float(filters.get("min_multiple", 1.5))
+    min_count = int(filters.get("min_count", 3))
+    only_en_vente = bool(filters.get("only_en_vente", True))
+    exclude_lot_products = bool(filters.get("exclude_lot_products", True))
+    max_avg_cost_total = filters.get("max_avg_cost_total")
+    categorie_id = filters.get("categorie_id")
+    genre_id = filters.get("genre_id")
+    limit = int(filters.get("limit", 50))
+
+    # 1) récupérer couples (produit_id, type_id) filtrés taxonomie si demandé
+    stmt = (
+        select(Produit.id, ProductType.id, ProductType.nom)
+        .join(ProduitTypeProduit, ProduitTypeProduit.produit_id == Produit.id)
+        .join(ProductType, ProductType.id == ProduitTypeProduit.type_produit_id)
+        .where(Produit.user_id == user_id)
+    )
+
+    if only_en_vente:
+        stmt = stmt.where(Produit.en_vente == True)  # noqa: E712
+
+    if genre_id is not None or categorie_id is not None:
+        stmt = stmt.join(Genre, Genre.id == ProductType.genre_id)
+    if categorie_id is not None:
+        stmt = stmt.join(Category, Category.id == Genre.categorie_id)
+
+    if genre_id is not None:
+        stmt = stmt.where(Genre.id == int(genre_id))
+    if categorie_id is not None:
+        stmt = stmt.where(Category.id == int(categorie_id))
+
+    rows = session.execute(stmt).all()
+
+    # 2) agrégation par type
+    by_type = defaultdict(lambda: {
+        "type_produit_id": None,
+        "type_produit_nom": None,
+        "count_products": 0,
+        "count_profitable": 0,
+        "sum_multiple": 0.0,
+        "sum_cost_total": 0.0,
+        "sum_profit_amount": 0.0,
+    })
+
+    for product_id, type_id, type_nom in rows:
+        ctx = _get_product_cost_context_for_user(session, user_id, int(product_id))
+        if ctx is None:
+            continue
+
+        # exclure lot (par défaut)
+        if ctx["from_lot"]:
+            if exclude_lot_products:
+                continue
+            else:
+                continue  # on ne peut pas calculer un ratio type “propre” au niveau produit
+
+        # cost ok ?
+        cost_total = ctx["cost_total"]
+        if cost_total is None:
+            continue
+
+        # median ok ?
+        median = ctx["pmed"]
+        if median is None:
+            continue
+
+        cost_total = float(cost_total)
+        median = float(median)
+
+        # multiple
+        if cost_total == 0:
+            # gratuit+0 frais => multiple infini, ça fausse : on ignore
+            continue
+
+        multiple = median / cost_total
+        profit_amount = median - cost_total
+
+        d = by_type[int(type_id)]
+        d["type_produit_id"] = int(type_id)
+        d["type_produit_nom"] = type_nom
+        d["count_products"] += 1
+        d["sum_multiple"] += float(multiple)
+        d["sum_cost_total"] += float(cost_total)
+        d["sum_profit_amount"] += float(profit_amount)
+        if multiple >= min_multiple:
+            d["count_profitable"] += 1
+
+    # 3) construire sortie + filtres min_count / max_avg_cost_total
+    items = []
+    for type_id, d in by_type.items():
+        n = d["count_products"]
+        if n < min_count:
+            continue
+
+        avg_multiple = d["sum_multiple"] / n
+        avg_cost = d["sum_cost_total"] / n
+        avg_profit = d["sum_profit_amount"] / n
+        success_rate = d["count_profitable"] / n
+
+        if avg_multiple < min_multiple:
+            continue
+        if max_avg_cost_total is not None and avg_cost > float(max_avg_cost_total):
+            continue
+
+        items.append({
+            "type_produit_id": d["type_produit_id"],
+            "type_produit_nom": d["type_produit_nom"],
+            "count_products": n,
+            "count_profitable": d["count_profitable"],
+            "success_rate": float(success_rate),
+            "avg_multiple_median": float(avg_multiple),
+            "avg_cost_total": float(avg_cost),
+            "avg_profit_amount": float(avg_profit),
+        })
+
+    # tri: meilleurs d'abord
+    items.sort(key=lambda x: (x["avg_multiple_median"], x["success_rate"], x["count_products"]), reverse=True)
+    items = items[:limit]
+
+    return {
+        "filters": {
+            "min_multiple": min_multiple,
+            "min_count": min_count,
+            "only_en_vente": only_en_vente,
+            "exclude_lot_products": exclude_lot_products,
+            "max_avg_cost_total": max_avg_cost_total,
+            "categorie_id": categorie_id,
+            "genre_id": genre_id,
+            "limit": limit,
+        },
+        "items": items,
+        "count": len(items),
+    }
+
+def get_benefice_breakdown_for_user(user_id: int, filters: dict) -> dict:
+    session: Session = db()
+
+    group_by = filters["group_by"]
+    include_fees = bool(filters.get("include_fees", True))
+    exclude_lot_products = bool(filters.get("exclude_lot_products", True))
+    only_en_vente = bool(filters.get("only_en_vente", False))
+    only_unsold = bool(filters.get("only_unsold", False))
+    min_count = int(filters.get("min_count", 1))
+    limit = int(filters.get("limit", 50))
+
+    # ---- fees subqueries (agrégées par produit) ----
+    deliv_sq = (
+        select(
+            DeliveryCharges.produit_id.label("pid"),
+            func.coalesce(func.sum(DeliveryCharges.montant), 0.0).label("delivery_fees"),
+        )
+        .group_by(DeliveryCharges.produit_id)
+        .subquery()
+    )
+
+    other_sq = (
+        select(
+            OtherCharges.produit_id.label("pid"),
+            func.coalesce(func.sum(OtherCharges.montant), 0.0).label("other_fees"),
+        )
+        .group_by(OtherCharges.produit_id)
+        .subquery()
+    )
+
+    fees_expr = (
+        func.coalesce(deliv_sq.c.delivery_fees, 0.0) + func.coalesce(other_sq.c.other_fees, 0.0)
+        if include_fees
+        else literal_column("0.0")
+    )
+
+    median = _median_expr(Produit.prix_min_espere, Produit.prix_max_espere)
+
+    # coût achat: gratuit => 0 ; acheté => prix_achat (NULL => ignoré via filtre plus bas)
+    cost_achat = case(
+        (Produit.a_ete_achete == False, 0.0),  # noqa: E712
+        else_=cast(Produit.prix_achat, Float),
+    )
+
+    # on ignore les lignes où:
+    # - median est NULL (pas de scénario)
+    # - produit acheté mais prix_achat NULL (sinon coût impossible)
+    # (gratuit ok => cost_achat=0)
+    base_conds = [Produit.user_id == user_id]
+    if only_en_vente:
+        base_conds.append(Produit.en_vente == True)  # noqa: E712
+    if only_unsold:
+        base_conds.append(Produit.est_vendu == False)  # noqa: E712
+
+    # median doit être non null
+    base_conds.append(median.isnot(None))
+
+    # si acheté, prix_achat doit être non null
+    base_conds.append(
+        case(
+            (Produit.a_ete_achete == True, Produit.prix_achat.isnot(None)),  # noqa: E712
+            else_=True,
+        )
+    )
+
+    # exclure produits en lot (par défaut)
+    if exclude_lot_products:
+        base_conds.append(
+            ~select(LotProduit.id).where(LotProduit.produit_id == Produit.id).exists()
+        )
+
+    # ---- join taxonomie (toujours, car breakdown par cat/genre/type) ----
+    stmt = (
+        select()
+        .select_from(Produit)
+        .join(ProduitTypeProduit, ProduitTypeProduit.produit_id == Produit.id)
+        .join(ProductType, ProductType.id == ProduitTypeProduit.type_produit_id)
+        .join(Genre, Genre.id == ProductType.genre_id)
+        .join(Category, Category.id == Genre.categorie_id)
+        .outerjoin(deliv_sq, deliv_sq.c.pid == Produit.id)
+        .outerjoin(other_sq, other_sq.c.pid == Produit.id)
+        .where(and_(*base_conds))
+    )
+
+    # ---- group columns ----
+    if group_by == "type_produit":
+        group_id_col = ProductType.id
+        group_name_col = ProductType.nom
+    elif group_by == "genre":
+        group_id_col = Genre.id
+        group_name_col = Genre.intitule
+    else:  # categorie
+        group_id_col = Category.id
+        group_name_col = Category.intitule
+
+    cost_total_expr = cast(cost_achat, Float) + cast(fees_expr, Float)
+
+    stmt = stmt.with_only_columns(
+        group_id_col.label("group_id"),
+        group_name_col.label("group_name"),
+        func.count(func.distinct(Produit.id)).label("count_products"),
+        func.coalesce(func.sum(median), 0.0).label("revenue_expected_median"),
+        func.coalesce(func.sum(cost_achat), 0.0).label("cost_products"),
+        func.coalesce(func.sum(fees_expr), 0.0).label("fees"),
+        func.coalesce(func.sum(cost_total_expr), 0.0).label("cost_total"),
+    ).group_by(group_id_col, group_name_col)
+
+    # min_count + tri + limit
+    stmt = stmt.having(func.count(func.distinct(Produit.id)) >= min_count)
+    stmt = stmt.order_by(func.coalesce(func.sum(median) - func.sum(cost_total_expr), 0.0).desc())
+    stmt = stmt.limit(limit)
+
+    rows = session.execute(stmt).all()
+
+    items = []
+    for r in rows:
+        revenue = float(r.revenue_expected_median or 0.0)
+        cost_total = float(r.cost_total or 0.0)
+        profit = revenue - cost_total
+
+        avg_multiple = None
+        if cost_total > 0:
+            avg_multiple = revenue / cost_total
+
+        items.append({
+            "group_id": int(r.group_id) if r.group_id is not None else None,
+            "group_name": r.group_name,
+            "count_products": int(r.count_products or 0),
+            "revenue_expected_median": revenue,
+            "cost_products": float(r.cost_products or 0.0),
+            "fees": float(r.fees or 0.0),
+            "cost_total": cost_total,
+            "profit_expected_median": float(profit),
+            "is_profit_expected_median": profit > 0,
+            "avg_multiple_median": None if avg_multiple is None else float(avg_multiple),
+        })
+
+    return {
+        "group_by": group_by,
+        "items": items,
+        "count": len(items),
     }
